@@ -1,35 +1,36 @@
 const rendererCache = new Map()
-/**
- *
- * @param {string} name the renderer name: katex, sequence, plantuml, flowchart, mermaid, vega-lite
- */
+
 const loadRenderer = async (name) => {
   if (!rendererCache.has(name)) {
     let m
+    let renderer
+    let mermaidLoader
+
     switch (name) {
       case 'sequence':
         m = await import('../parser/render/sequence')
-        rendererCache.set(name, m.default)
+        renderer = m.default
         break
       case 'plantuml':
         m = await import('../parser/render/plantuml')
-        rendererCache.set(name, m.default)
+        renderer = m.default
         break
       case 'flowchart':
         m = await import('flowchart.js')
-        rendererCache.set(name, m.default)
+        renderer = m.default
         break
       case 'mermaid':
-        m = await import('mermaid/dist/mermaid.core.js')
-        rendererCache.set(name, m.default)
+        mermaidLoader = await import('../utils/mermaid-loader')
+        renderer = await mermaidLoader.default()
         break
       case 'vega-lite':
         m = await import('vega-embed')
-        rendererCache.set(name, m.default)
+        renderer = m.default
         break
       default:
         throw new Error(`Unknown diagram name ${name}`)
     }
+    rendererCache.set(name, renderer)
   }
 
   return rendererCache.get(name)

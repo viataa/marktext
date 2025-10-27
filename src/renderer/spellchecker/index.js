@@ -487,7 +487,7 @@ export class SpellChecker {
     }
     return {
       left,
-      right: right,
+      right,
       word: text.slice(left, right)
     }
   }

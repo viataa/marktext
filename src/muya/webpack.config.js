@@ -97,7 +97,9 @@ module.exports = {
   },
   resolve: {
     alias: {
-      snapsvg: path.join(__dirname, './lib/assets/libs/snap.svg-min.js')
+      snapsvg: path.join(__dirname, './lib/assets/libs/snap.svg-min.js'),
+      'mermaid$': 'mermaid/dist/mermaid.esm.mjs',
+      'mermaid/dist/mermaid.core.js$': 'mermaid/dist/mermaid.esm.mjs'
     },
     extensions: ['.js', '.vue', '.json', '.css', '.node'],
     fallback: {
