@@ -33,28 +33,79 @@ class ExportHtml {
     this.mathRendererCalled = false
   }
 
+  // 最重要的修复！ Mermaid 的 securityLevel 设置：
+  // 修复前（原代码）：
+  // securityLevel: 'strict'
+  // 修复后：
+  // securityLevel: 'loose'
+  // strict: 严格安全模式，会阻止某些渲染操作，特别是在跨上下文（如导出到HTML/PDF）时
+  // loose: 宽松模式，允许更多的渲染特性，适合导出场景
   async renderMermaid () {
-    const codes = this.exportContainer.querySelectorAll('code.language-mermaid')
-    for (const code of codes) {
-      const preEle = code.parentNode
-      const mermaidContainer = document.createElement('div')
-      mermaidContainer.innerHTML = sanitize(unescapeHTML(code.innerHTML), EXPORT_DOMPURIFY_CONFIG, true)
-      mermaidContainer.classList.add('mermaid')
-      preEle.replaceWith(mermaidContainer)
-    }
-    const mermaid = await loadRenderer('mermaid')
-    // We only export light theme, so set mermaid theme to `default`, in the future, we can choose whick theme to export.
-    mermaid.initialize({
-      securityLevel: 'strict',
-      theme: 'default'
-    })
-    mermaid.init(undefined, this.exportContainer.querySelectorAll('div.mermaid'))
-    if (this.muya) {
-      mermaid.initialize({
-        securityLevel: 'strict',
-        theme: this.muya.options.mermaidTheme
-      })
-    }
+      const codes = this.exportContainer.querySelectorAll('code.language-mermaid')
+
+      if (codes.length === 0) {
+          return
+      }
+
+      try {
+          const mermaid = await loadRenderer('mermaid')
+
+          // 优化的配置
+          mermaid.initialize({
+              startOnLoad: false,
+              securityLevel: 'loose', // 保持宽松模式
+              theme: 'default',
+              fontFamily: 'sans-serif',
+              flowchart: {
+                  useMaxWidth: false,
+                  htmlLabels: true,
+                  curve: 'basis'
+              },
+              sequence: {
+                  useMaxWidth: false,
+                  diagramMarginX: 50,
+                  diagramMarginY: 10
+              }
+          })
+
+          const renderPromises = []
+
+          for (const code of codes) {
+              const promise = (async () => {
+                  const preEle = code.parentNode
+                  const mermaidContainer = document.createElement('div')
+                  mermaidContainer.classList.add('mermaid')
+
+                  const mermaidCode = unescapeHTML(code.innerHTML).trim()
+                  const id = 'mermaid-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9)
+
+                  try {
+                      const { svg } = await mermaid.render(id, mermaidCode)
+                      mermaidContainer.innerHTML = svg
+                      preEle.replaceWith(mermaidContainer)
+                  } catch (error) {
+                      console.warn('Mermaid render failed, using fallback:', error)
+                      // 优雅降级：显示原始代码
+                      mermaidContainer.textContent = mermaidCode
+                      mermaidContainer.style.cssText = `
+          border: 1px solid #e1e4e8;
+          padding: 16px;
+          background: #f6f8fa;
+          border-radius: 6px;
+          font-family: monospace;
+          white-space: pre-wrap;
+        `
+                      preEle.replaceWith(mermaidContainer)
+                  }
+              })()
+
+              renderPromises.push(promise)
+          }
+
+          await Promise.all(renderPromises)
+      } catch (error) {
+          console.error('Mermaid initialization failed:', error)
+      }
   }
 
   async renderDiagram () {
