@@ -20,8 +20,8 @@ const loadRenderer = async (name) => {
         rendererCache.set(name, m.default)
         break
       case 'mermaid':
-        m = await import('mermaid/dist/mermaid.core.js')
-        rendererCache.set(name, m.default)
+        m = await import('../utils/mermaid-loader')
+        rendererCache.set(name, await m.default())
         break
       case 'vega-lite':
         m = await import('vega-embed')

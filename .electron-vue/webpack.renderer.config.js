@@ -212,7 +212,7 @@ const rendererConfig = {
       snapsvg: path.join(__dirname, '../src/muya/lib/assets/libs/snap.svg-min.js'),
       'vue$': 'vue/dist/vue.esm.js'
     },
-    extensions: ['.js', '.vue', '.json', '.css', '.node']
+    extensions: ['.js', '.mjs', '.vue', '.json', '.css', '.node']
   },
   target: 'electron-renderer'
 }

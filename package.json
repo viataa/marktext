@@ -1,6 +1,6 @@
 {
   "name": "marktext",
-  "version": "0.17.1",
+  "version": "1.0.1",
   "homepage": "https://marktext.app/",
   "description": "Next generation markdown editor",
   "license": "MIT",
@@ -66,7 +66,7 @@
     "joplin-turndown-plugin-gfm": "^1.0.12",
     "katex": "^0.15.2",
     "keytar": "^7.9.0",
-    "mermaid": "^8.14.0",
+    "mermaid": "^11.14.0",
     "minizlib": "^2.1.2",
     "native-keymap": "^3.2.1",
     "plist": "^3.0.4",
@@ -178,7 +178,8 @@
   },
   "resolutions": {
     "cld": "^2.7.1",
-    "node-abi": "^3.5.0"
+    "node-abi": "^3.5.0",
+    "terser": "^5.31.0"
   },
   "repository": {
     "type": "git",

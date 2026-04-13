@@ -21,6 +21,7 @@ class StateRender {
     this.renderingTable = null
     this.renderingRowContainer = null
     this.container = null
+    this._mermaidRendering = null
   }
 
   setContainer (container) {
@@ -96,29 +97,37 @@ class StateRender {
   }
 
   async renderMermaid () {
-    if (this.mermaidCache.size) {
+    if (!this.mermaidCache.size) return
+    if (this._mermaidRendering) return
+
+    this._mermaidRendering = true
+    try {
+      const entries = [...this.mermaidCache.entries()]
+      this.mermaidCache.clear()
+
       const mermaid = await loadRenderer('mermaid')
       mermaid.initialize({
         securityLevel: 'strict',
         theme: this.muya.options.mermaidTheme
       })
-      for (const [key, value] of this.mermaidCache.entries()) {
-        const { code } = value
+      for (const [key, { code }] of entries) {
         const target = document.querySelector(key)
-        if (!target) {
-          continue
-        }
+        if (!target) continue
         try {
           mermaid.parse(code)
           target.innerHTML = sanitize(code, PREVIEW_DOMPURIFY_CONFIG, true)
-          mermaid.init(undefined, target)
+          await mermaid.init(undefined, target)
         } catch (err) {
           target.innerHTML = '< Invalid Mermaid Codes >'
           target.classList.add(CLASS_OR_ID.AG_MATH_ERROR)
         }
       }
-
-      this.mermaidCache.clear()
+    } finally {
+      this._mermaidRendering = false
+      // Re-render if new items were queued during rendering
+      if (this.mermaidCache.size) {
+        this.renderMermaid()
+      }
     }
   }
 
