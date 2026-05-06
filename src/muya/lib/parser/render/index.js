@@ -1,6 +1,6 @@
 import loadRenderer from '../../renderers'
-import { CLASS_OR_ID, PREVIEW_DOMPURIFY_CONFIG } from '../../config'
-import { conflict, mixins, camelToSnake, sanitize } from '../../utils'
+import { CLASS_OR_ID } from '../../config'
+import { conflict, mixins, camelToSnake } from '../../utils'
 import { patch, toVNode, toHTML, h } from './snabbdom'
 import { beginRules } from '../rules'
 import renderInlines from './renderInlines'
@@ -22,6 +22,7 @@ class StateRender {
     this.renderingRowContainer = null
     this.container = null
     this._mermaidRendering = null
+    this._mermaidIdCounter = 0
   }
 
   setContainer (container) {
@@ -114,9 +115,10 @@ class StateRender {
         const target = document.querySelector(key)
         if (!target) continue
         try {
-          mermaid.parse(code)
-          target.innerHTML = sanitize(code, PREVIEW_DOMPURIFY_CONFIG, true)
-          await mermaid.init(undefined, target)
+          await mermaid.parse(code)
+          const id = 'mermaid-' + (this._mermaidIdCounter++)
+          const { svg } = await mermaid.render(id, code)
+          target.innerHTML = svg
         } catch (err) {
           target.innerHTML = '< Invalid Mermaid Codes >'
           target.classList.add(CLASS_OR_ID.AG_MATH_ERROR)
