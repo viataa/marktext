@@ -15,6 +15,7 @@ interface IRenderOptions {
     target: HTMLElement;
     vegaTheme: string;
     mermaidTheme: string;
+    plantumlServer: string;
     sequenceTheme: 'hand' | 'simple';
 }
 
@@ -24,6 +25,7 @@ async function renderDiagram({
     target,
     vegaTheme,
     mermaidTheme,
+    plantumlServer,
     sequenceTheme,
 }: IRenderOptions) {
     const render = await loadRenderer(type);
@@ -42,7 +44,7 @@ async function renderDiagram({
     }
 
     if (type === 'plantuml') {
-        const diagram = render.parse(code);
+        const diagram = render.parse(code, plantumlServer);
         target.innerHTML = '';
         diagram.insertImgElement(target);
     }
@@ -128,7 +130,7 @@ class DiagramPreview extends Parent {
 
         if (code) {
             this.domNode!.innerHTML = i18n.t('Loading...');
-            const { mermaidTheme, vegaTheme, sequenceTheme } = this.muya.options;
+            const { mermaidTheme, vegaTheme, plantumlServer, sequenceTheme } = this.muya.options;
             const { type } = this;
 
             try {
@@ -138,6 +140,7 @@ class DiagramPreview extends Parent {
                     type,
                     mermaidTheme,
                     vegaTheme,
+                    plantumlServer,
                     sequenceTheme,
                 });
             }
