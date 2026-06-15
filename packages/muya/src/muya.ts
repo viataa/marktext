@@ -50,6 +50,17 @@ interface IPlugin {
     options: Record<string, unknown>;
 }
 
+// A selection reduced to document paths + offsets, with block references
+// dropped so it survives a wholesale tree rebuild (paths are re-resolved
+// against the fresh tree). Used to keep the caret/selection put across a
+// loose/tight list toggle.
+interface ISelectionSnapshot {
+    anchor: number;
+    focus: number;
+    anchorPath: (string | number)[];
+    focusPath: (string | number)[];
+}
+
 // Maps the paragraph-menu labels the desktop sends through `updateParagraph`
 // to muya's `replaceBlockByLabel` vocabulary.
 const PARAGRAPH_LABEL_MAP: Record<string, string> = {
@@ -1057,11 +1068,76 @@ export class Muya {
         if (!isAnyListState(state))
             return;
 
+        // Toggling only flips meta.loose, so the rebuilt list keeps the same
+        // structure and document position. Snapshot the selection as paths +
+        // offsets so a caret OR a multi-item range can be restored afterwards
+        // instead of collapsing to the first item.
+        const snapshot = this._snapshotSelection();
+
         const newState = deepClone(state);
         newState.meta.loose = !newState.meta.loose;
         const newBlock = ScrollPage.loadBlock(newState.name).create(this, newState);
         block.replaceWith(newBlock);
-        newBlock.firstContentInDescendant()?.setCursor(0, 0, true);
+
+        if (!this._restoreSelection(snapshot))
+            newBlock.firstContentInDescendant()?.setCursor(0, 0, true);
+    }
+
+    /**
+     * Capture the current selection as document paths + offsets. The live DOM
+     * selection is the source of truth (it carries a click-placed caret), with
+     * the cached selection — committed on mouse-up and surviving the menu/IPC
+     * round-trip — as the fallback. Block references are intentionally dropped:
+     * they go stale when the list is rebuilt, so the paths are re-resolved on
+     * restore.
+     */
+    private _snapshotSelection(): ISelectionSnapshot | null {
+        const sel = this.editor.selection;
+        const live = sel.getSelection();
+        const anchor = live?.anchor ?? sel.anchor;
+        const focus = live?.focus ?? sel.focus;
+        const anchorPath = live?.anchorPath ?? sel.anchorPath;
+        const focusPath = live?.focusPath ?? sel.focusPath;
+        if (!anchor || !focus || !anchorPath?.length || !focusPath?.length)
+            return null;
+
+        return {
+            anchor: anchor.offset,
+            focus: focus.offset,
+            anchorPath: [...anchorPath],
+            focusPath: [...focusPath],
+        };
+    }
+
+    /**
+     * Re-resolve a snapshot's paths against the live tree and re-apply it via
+     * the selection API. Returns false when either path no longer resolves to a
+     * content block so the caller can fall back.
+     */
+    private _restoreSelection(snapshot: ISelectionSnapshot | null): boolean {
+        if (!snapshot)
+            return false;
+
+        const { scrollPage } = this.editor;
+        // `queryBlock` consumes its path array in place, so resolve against copies.
+        const anchorBlock = scrollPage?.queryBlock([...snapshot.anchorPath]);
+        const focusBlock = scrollPage?.queryBlock([...snapshot.focusPath]);
+        if (!anchorBlock || !focusBlock)
+            return false;
+        if (!anchorBlock.isContent() || !focusBlock.isContent())
+            return false;
+
+        this.editor.activeContentBlock = focusBlock;
+        this.editor.selection.setSelection({
+            anchor: { offset: snapshot.anchor },
+            focus: { offset: snapshot.focus },
+            anchorBlock,
+            anchorPath: [...snapshot.anchorPath],
+            focusBlock,
+            focusPath: [...snapshot.focusPath],
+        });
+
+        return true;
     }
 
     /** Convert an existing list to another list type, preserving items. */
