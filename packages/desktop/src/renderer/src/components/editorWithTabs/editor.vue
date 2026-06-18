@@ -130,6 +130,7 @@ import { isOsx, animatedScrollTo } from '@/util'
 import { moveImageToFolder, uploadImage } from '@/util/fileSystem'
 import { guessClipboardFilePath } from '@/util/clipboard'
 import { getCssForOptions, getHtmlToc, type PdfCssOptions, type HtmlTocOptions } from '@/util/pdf'
+import { resolveTocHeadingElement } from '@/util/tocNavigation'
 import { addCommonStyle, setEditorWidth, setWrapCodeBlocks } from '@/util/theme'
 import { usePreferencesStore } from '@/store/preferences'
 import { useEditorStore } from '@/store/editor'
@@ -1178,24 +1179,35 @@ const scrollToCords = (y: number) => {
   })
 }
 
+// Smoothly scroll the editor so `anchor` sits at the standard top offset.
+// Shared by the TOC, search-highlight, and any other "reveal this element"
+// caller so the getBoundingClientRect + animatedScrollTo math lives once.
+const scrollElementIntoView = (anchor: Element | null | undefined, duration = 300) => {
+  const container = getScrollContainer()
+  if (!container || !anchor) return
+  const { y } = anchor.getBoundingClientRect()
+  animatedScrollTo(container, container.scrollTop + y - STANDAR_Y, duration)
+}
+
 const scrollToHighlight = () => {
   return scrollToElement('.mu-highlight')
 }
 
+/**
+ * Scrolls the editor to the heading for a TOC entry. See
+ * `resolveTocHeadingElement` for why the slug is resolved by document order
+ * against the top-level headings only.
+ * @param slug The TOC entry's slug from the `scroll-to-header` bus event.
+ */
 const scrollToHeader = (slug: unknown) => {
-  return scrollToElement(`#${slug}`)
+  const container = getScrollContainer()
+  if (!container) return
+  scrollElementIntoView(resolveTocHeadingElement(container, editorStore.listToc, slug))
 }
 
 const scrollToElement = (selector: string) => {
   // Scroll to search highlight word
-  const container = getScrollContainer()
-  if (!container) return
-  const anchor = document.querySelector(selector)
-  if (anchor) {
-    const { y } = anchor.getBoundingClientRect()
-    const DURATION = 300
-    animatedScrollTo(container, container.scrollTop + y - STANDAR_Y, DURATION)
-  }
+  scrollElementIntoView(document.querySelector(selector))
 }
 
 const handleFindAction = (action: unknown) => {
@@ -1404,6 +1416,10 @@ const setMarkdownToEditor = (payload: unknown) => {
     if (newCursor) {
       editor.value.setCursor(newCursor)
     }
+    // `setContent` rebuilds the block tree synchronously but fires no
+    // `json-change`, so seed the TOC explicitly (otherwise it stays empty until
+    // the first edit, and a file switch keeps the previous file's TOC).
+    editorStore.UPDATE_TOC(editor.value.getTOC())
   }
 }
 
@@ -1476,6 +1492,7 @@ const handleFileChange = (payload: unknown) => {
       // remapping below.
       editor.value.replaceContent(newMarkdown, preSourceModeSelection)
       preSourceModeSelection = null
+      editorStore.UPDATE_TOC(editor.value.getTOC())
       // Map the CodeMirror `{ line, ch }` cursor onto a block-key cursor so the
       // WYSIWYG caret lands where the source-mode cursor was (PG2).
       editor.value.setCursorByOffset(muyaIndexCursor)
@@ -1486,6 +1503,9 @@ const handleFileChange = (payload: unknown) => {
       // `history` in the payload is the synthetic desktop-shaped history used
       // for save tracking, not the engine history.
       editor.value.setContent(newMarkdown)
+      // Tab switch swaps content without firing `json-change`, so re-seed the
+      // TOC (otherwise returning to an open tab keeps the other tab's TOC).
+      editorStore.UPDATE_TOC(editor.value.getTOC())
       if (newCursor) {
         editor.value.setCursor(newCursor)
       } else if (isIndexCursor(muyaIndexCursor)) {
@@ -1669,6 +1689,9 @@ onMounted(() => {
   // the document tree and instantiates the registered UI plugins).
   muya.init()
   editor.value = muya
+  // The first document's content is set via constructor options, so no
+  // `file-loaded` / `setMarkdownToEditor` runs for it — seed its TOC here.
+  editorStore.UPDATE_TOC(muya.getTOC())
 
   // Seed the save-tracking baseline for the mount-loaded document (from the
   // engine's OWN serialization, same reason as setMarkdownToEditor). Without
