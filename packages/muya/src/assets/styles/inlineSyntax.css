@@ -97,20 +97,31 @@ code.mu-inline-rule {
 .mu-html-escape {
     position: relative;
 
-    margin-left: 1em;
+    /* `inline` (overriding the `inline-block` inherited from `.mu-hide`, an
+       atomic box the line breaks around) so an entity breaks like the character
+       it represents — a `&nbsp;` glyph (U+00A0) is non-breaking; `nowrap` keeps
+       the literal entity text together while editing. `baseline` overrides the
+       `vertical-align: middle` from `.mu-hide` so the inline glyph sits on the
+       text baseline like the character it represents. */
+    display: inline;
+
+    white-space: nowrap;
+    vertical-align: baseline;
 }
 
-.mu-html-escape::before {
+/* When the caret is outside the entity, take the literal marker text out of
+   flow so the entity shows only its `::before` glyph, at the glyph's own width
+   (no extra width from the hidden literal, no break opportunity). */
+.mu-hide.mu-html-escape[data-character] .mu-html-escape-marker {
     position: absolute;
-    top: 0;
-    left: -1em;
 
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    width: 1em;
-    height: 100%;
+    visibility: hidden;
+}
 
+/* Render the glyph (`data-character`) inline at its natural width, so every
+   entity is exactly as wide as the character it stands for: `&nbsp;` is one
+   space, `&amp;` one ampersand, `&mdash;` one em dash — not a fixed 1em slot. */
+.mu-html-escape::before {
     color: var(--editor-color);
 
     content: attr(data-character);
