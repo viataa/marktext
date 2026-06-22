@@ -674,6 +674,10 @@ class ParagraphContent extends Format {
         return list && /ol|ul/.test(list.tagName) && listItem.prev;
     }
 
+    private _placeCursorIn(block: Nullable<Parent>, startOffset: number, endOffset: number) {
+        block?.firstContentInDescendant()?.setCursor(startOffset, endOffset, true);
+    }
+
     private _unindentListItem(type: UnindentType) {
         const { parent } = this;
         const listItem = parent?.parent;
@@ -703,6 +707,8 @@ class ParagraphContent extends Format {
                 list.remove();
             else
                 listItem.remove();
+
+            this._placeCursorIn(paragraph, start.offset, end.offset);
         }
         else if (type === UnindentType.INDENT) {
             const newListItem = listItem.clone() as Parent;
@@ -766,11 +772,11 @@ class ParagraphContent extends Format {
                 return;
             }
 
-            const cursorBlock = (
-                newListItem.find(cursorParagraphOffset) as Parent
-            ).firstContentInDescendant();
-
-            cursorBlock?.setCursor(start.offset, end.offset, true);
+            this._placeCursorIn(
+                newListItem.find(cursorParagraphOffset) as Parent,
+                start.offset,
+                end.offset,
+            );
         }
     }
 
