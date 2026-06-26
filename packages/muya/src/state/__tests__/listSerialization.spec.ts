@@ -24,6 +24,40 @@ function roundTrip(md: string, listIndentation: number | string = 1): string {
     return new ExportMarkdown({ listIndentation }).generate(states);
 }
 
+describe('stateToMarkdown — empty list item serialization', () => {
+    it('keeps consecutive empty task items on separate lines', () => {
+        expect(roundTrip('- [ ] \n- [ ] \n')).toBe('- [ ] \n- [ ] \n');
+        expect(roundTrip('- [ ] \n- [x] \n')).toBe('- [ ] \n- [x] \n');
+    });
+
+    it('keeps consecutive empty bullet items on separate lines', () => {
+        expect(roundTrip('- \n- \n')).toBe('- \n- \n');
+    });
+
+    it('keeps adjacent empty bullet items before a following paragraph', () => {
+        const md = '- \n- \n- \n\nz\n';
+        const out = roundTrip(md, 1);
+        expect(out).toBe(md);
+
+        const reparsed = parseMarkdown(out);
+        expect(reparsed[0].name).toBe('bullet-list');
+        expect((reparsed[0] as IBulletListState).children).toHaveLength(3);
+        expect(reparsed[1].name).toBe('paragraph');
+    });
+
+    it('keeps an empty bullet item between populated sibling items', () => {
+        const md = '- a\n- \n- c\n';
+        const out = roundTrip(md, 1);
+        expect(out).toBe(md);
+
+        const reparsed = parseMarkdown(out);
+        const list = reparsed[0] as IBulletListState;
+        expect(list.name).toBe('bullet-list');
+        expect(list.children).toHaveLength(3);
+        expect(list.children[1].children).toEqual([{ name: 'paragraph', text: '' }]);
+    });
+});
+
 function parseMarkdown(md: string): TState[] {
     return new MarkdownToState({
         footnote: false,
